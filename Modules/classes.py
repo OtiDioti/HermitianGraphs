@@ -59,7 +59,7 @@ class Hamiltonian:
         emax : float, optional
             Maximum energy level for random generation.
         """
-        if matrix != None:
+        if type(matrix) != None:
             self.matrix = matrix
         else:
             self.matrix = self.get_random_weak_ham(dim = dim, emin = emin, emax = emax, tol = tol)
@@ -262,15 +262,14 @@ class State:
             normalized_value = lambda val: norm(norm_value(val)) # normalizing
             
             cmap = plt.get_cmap(col_map_nodes) # obtaining color map for nodes 
-            rgba_color = lambda val: cmap(normalized_value(val)) # getting rgba
-            #hex_color = lambda val : to_hex(rgba_color(val)) # converting to hex
-            
+            rgba_color = lambda val: cmap(normalized_value(val)) # getting rgba            
             
             # Graph
-            coups_idx = np.nonzero(H.couplings)
+            coups_idx = np.nonzero(H.couplings * np.tri(H.dim, H.dim, -1))
             edges = [(coups_idx[0][i], coups_idx[1][i]) for i in range(len(coups_idx[0]))]
             graph = Graph(edges)
             rgba_colors = [list(rgba_color(phase[node].real)) for node in range(H.dim)]
+            
 
             for node in range(H.dim):
                 rgba_colors[node][-1] =  s_profile(matrix[node, node]).real
@@ -289,11 +288,11 @@ class State:
         self.graph = self.get_graph(H, networkx = networkx, col_map_nodes = col_map_nodes)
 
     def propagate(self, H, 
-                  dt = 0.1, t_final = None, 
+                  dt = None, t_final = None, 
                   networkx = False, sim_tol = 1e-15, 
                   col_map_nodes = "RdBu_r"):
         states = [deepcopy(self)] # initializing list
-        vect_distance = lambda v, u :  np.dot(v,u)/(np.linalg.norm(v)*np.linalg.norm(u)) # cos similarity function
+        vect_distance = lambda v, u :  np.dot(v,u) / (np.linalg.norm(v)*np.linalg.norm(u)) # cos similarity function
         U = expm(-1j * H.matrix * dt)
         
         if t_final == None:
