@@ -32,7 +32,7 @@ This repository provides classes and functions to create and visualize Hamiltoni
 
 #### Initialization
 ```python
-from hamiltonian_visualizer import Hamiltonian
+from Modules.classes import Hamiltonian
 
 # Initialize with a random Hamiltonian matrix
 ham = Hamiltonian(dim=4, emin=0, emax=10)
@@ -47,7 +47,7 @@ ham = Hamiltonian(dim=4, emin=0, emax=10)
 
 #### Initialization
 ```python
-from hamiltonian_visualizer import State
+from Modules.classes import State
 
 # Initialize with a state vector and a Hamiltonian
 state_vector = np.array([1, 0, 0, 0])
