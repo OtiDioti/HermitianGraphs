@@ -35,7 +35,7 @@ class Hamiltonian:
     -------
     get_random_weak_ham(dim, emin, emax, tol)
         Generates a random weak Hamiltonian matrix.
-    get_graph(col_map_nodes="RdBu_r", menu_toggle=False, color_font="white", bgcolor="#222222", vmin=0, vmax=1)
+    get_graph(col_map_nodes="hsv", menu_toggle=False, color_font="white", bgcolor="#222222", vmin=0, vmax=1)
         Generates a graph representation of the Hamiltonian matrix.
     get_probabilities(hbar=1, tol=1e-15)
         Calculates transition probabilities based on the Hamiltonian matrix.
@@ -59,7 +59,7 @@ class Hamiltonian:
         emax : float, optional
             Maximum energy level for random generation.
         """
-        if type(matrix) != None:
+        if matrix is not None:
             self.matrix = matrix
         else:
             self.matrix = self.get_random_weak_ham(dim = dim, emin = emin, emax = emax, tol = tol)
@@ -100,7 +100,7 @@ class Hamiltonian:
         H_mat = tmp + tmp.conj().T
         return H_mat
 
-    def get_graph(self, col_map_nodes = "RdBu_r",
+    def get_graph(self, col_map_nodes = "hsv",
                  menu_toggle = False, color_font = "white",
                  bgcolor="#222222", vmin = 0, vmax = 1):
         """
@@ -196,15 +196,15 @@ class State:
 
     Methods
     -------
-    get_graph(H, networkx=False, col_map_nodes="RdBu_r", tol=1e-15)
+    get_graph(H, networkx=False, col_map_nodes="hsv", tol=1e-15)
         Generates a graph representation of the state vector.
-    move(U, col_map_nodes="RdBu_r", networkx=False)
+    move(U, col_map_nodes="hsv", networkx=False)
         Updates the state vector by applying a unitary transformation.
-    propagate(H, dt=0.1, t_final=None, networkx=False, sim_tol=1e-15, col_map_nodes="RdBu_r")
+    propagate(H, dt=0.1, t_final=None, networkx=False, sim_tol=1e-15, col_map_nodes="hsv")
         Propagates the state vector over time.
     """
     def __init__(self, state_v, H,
-                 networkx = False, col_map_nodes = "RdBu_r",
+                 networkx = False, col_map_nodes = "hsv",
                  tol = 1e-15, sim_tol = 1e-15):
         """
         Initializes the State with a given state vector and Hamiltonian.
@@ -228,7 +228,7 @@ class State:
         self.graph = self.get_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_nodes)
 
     def get_graph(self, H, 
-                  networkx = False, col_map_nodes = "RdBu_r",
+                  networkx = False, col_map_nodes = "hsv",
                   tol = 1e-15):
         """
         Generates a graph representation of the state vector.
@@ -281,7 +281,7 @@ class State:
             
         return graph
 
-    def move(self, H, U, col_map_nodes = "RdBu_r", networkx = False):
+    def move(self, H, U, col_map_nodes = "hsv", networkx = False):
         #self.state = np.dot(self.state, H.probabilities)
         self.state = U @ self.state
         self.state = self.state / np.linalg.norm(self.state)
@@ -290,7 +290,7 @@ class State:
     def propagate(self, H, 
                   dt = None, t_final = None, 
                   networkx = False, sim_tol = 1e-15, 
-                  col_map_nodes = "RdBu_r"):
+                  col_map_nodes = "hsv"):
         states = [deepcopy(self)] # initializing list
         vect_distance = lambda v, u :  np.dot(v,u) / (np.linalg.norm(v)*np.linalg.norm(u)) # cos similarity function
         U = expm(-1j * H.matrix * dt)
