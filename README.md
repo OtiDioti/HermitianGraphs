@@ -18,7 +18,7 @@ This repository provides classes and functions to create and visualize Hamiltoni
 1. Clone the repository:
     ```sh
     git clone https://github.com/OtiDioti/HermitianGraphs.git
-    cd quantum-hamiltonian-visualizer
+    cd HermitianGraphs
     ```
 
 2. Install the required dependencies:
