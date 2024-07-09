@@ -1,6 +1,7 @@
 # Quantum Hamiltonian Dynamics Visualizer
 
 Visualize Hamiltonian dynamics of quantum systems with a complex weighted graph representation.
+![Quantum Hamiltonian Dynamics](gifs/movie.gif)
 
 ## Overview
 
