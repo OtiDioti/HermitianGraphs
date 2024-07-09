@@ -86,10 +86,3 @@ states[-1].graph.show("final_state.html")
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License.
-```
-
-Save the above content in a file named `README.md` in your repository. Adjust the repository URL and any other details as necessary.
