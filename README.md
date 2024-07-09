@@ -11,7 +11,6 @@ This repository provides classes and functions to create and visualize Hamiltoni
 
 - **Random Hamiltonian Generation**: Generate random weak Hamiltonian matrices.
 - **Graph Representation**: Visualize Hamiltonian matrices and quantum states as complex weighted graphs.
-- **Probability Calculation**: Compute transition probabilities based on the Hamiltonian matrix.
 - **State Propagation**: Simulate the time evolution of quantum states.
 - **Interactive Visualization**: Explore quantum systems through interactive graph visualizations.
 
