@@ -236,12 +236,12 @@ class State:
             rgba_colors = [list(coloring(phase[node], vmin = -np.pi, vmax = np.pi, col_map = col_map_nodes)) for node in nodes]
             
             for node in nodes:
-                #node = list(dict(graph.nodes).keys())[idx]
-                #print(graph.nodes.values(), node)
+                alpha_val = normalize_val(probs[node], vmin = 0, vmax = 1)
                 rgba_colors[node][-1] =  s_profile(matrix[node, node]).real
                 graph.nodes[node]["color"] = to_hex(rgba_colors[node])
                 graph.nodes[node]["label"] = node
                 graph.nodes[node]["value"] = self.state[node]
+                graph.nodes[node]["alpha"] = alpha_val if alpha_val >= 0.1 else 0.1
             for edge in edges:
                 alpha_val = normalize_val(np.abs(H.matrix[edge]), vmin = 0, vmax =  np.abs(H.energy_diff_mat[edge]))
                 graph.edges[edge]["alpha"] = alpha_val if alpha_val >= 0.25 else 0.25
