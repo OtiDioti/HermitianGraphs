@@ -268,15 +268,17 @@ class State:
         
         if networkx: # if we want graph representation to be handled by networkx
             nodes = np.arange(H.dim)
-            phases_idx = np.nonzero(phases * lower_triangle_remover)
+            upper_triangle = phases * lower_triangle_remover
+            phases_idx = np.nonzero(upper_triangle)
             edges = [(phases_idx[0][i], phases_idx[1][i]) for i in range(len(phases_idx[0]))]
             graph = Graph(edges)
             graph.add_nodes_from(nodes)
             
+            upper_triangle_abs_sqrd = np.abs(upper_triangle)**2
             for idx, edge in enumerate(edges):
-                alpha_val = normalize_val(np.abs(self.dense[edge])**2, vmin = 0, vmax = (self.dense[edge[0],edge[0]] * self.dense[edge[1],edge[1]]).real)
+                alpha_val = normalize_val(upper_triangle_abs_sqrd[edge], vmin = 0, vmax = upper_triangle_abs_sqrd.max().real) # 0 <= |alpha_ij|^2 <= p_ii*p_jj
                 graph.edges[edge]["color"] = to_hex(coloring(phases[edge], vmin = -np.pi, vmax = np.pi, col_map = col_map_edges))
-                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= min_edge_alpha else min_edge_alpha # 0 <= |alpha_ij|^2 <= p_ii*p_jj
+                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= min_edge_alpha else min_edge_alpha 
             for node in nodes:
                 alpha_val = normalize_val(self.dense[node, node], vmin = 0, vmax = 1)
                 graph.nodes[node]["label"] = node
