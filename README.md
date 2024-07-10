@@ -2,7 +2,7 @@
 
 Visualize Hamiltonian dynamics of quantum systems with a complex weighted graph representation.
 <p align="center">
-  <img src="gifs/movie.gif" width="400" alt="Quantum Hamiltonian Dynamics">
+  <img src="gifs/movie.gif" width="500" alt="Quantum Hamiltonian Dynamics">
 </p>
 
 
