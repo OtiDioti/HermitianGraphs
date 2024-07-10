@@ -40,7 +40,7 @@ class Hamiltonian:
     get_probabilities(hbar=1, tol=1e-15)
         Calculates transition probabilities based on the Hamiltonian matrix.
     """
-    def __init__(self, matrix = None, dim = 4, hbar = 1, tol = 1e-15, emin = 0, emax = 10):
+    def __init__(self, matrix = None, dim = 4, hbar = 1, emin = 0, emax = 10):
         """
         Initializes the Hamiltonian with either a provided matrix or a randomly generated weak Hamiltonian.
 
@@ -52,8 +52,6 @@ class Hamiltonian:
             The dimension of the Hamiltonian matrix.
         hbar : float, optional
             Reduced Planck constant.
-        tol : float, optional
-            Tolerance level for calculations.
         emin : float, optional
             Minimum energy level for random generation.
         emax : float, optional
@@ -62,7 +60,7 @@ class Hamiltonian:
         if matrix is not None:
             self.matrix = matrix
         else:
-            self.matrix = self.get_random_weak_ham(dim = dim, emin = emin, emax = emax, tol = tol)
+            self.matrix = self.get_random_ham(dim = dim, emin = emin, emax = emax)
         self.dim = self.matrix.shape[0]
         self.energies =  self.matrix.diagonal()
         self.graph = self.get_graph(vmin = self.energies.min(), vmax = self.energies.max())
@@ -72,7 +70,7 @@ class Hamiltonian:
         self.max_abs_coupling = np.abs(self.couplings.max())
         self.min_abs_coupling = np.abs(self.couplings.min())
 
-    def get_random_weak_ham(self, dim, emin, emax, tol):
+    def get_random_ham(self, dim, emin, emax):
         """
         Generates a random weak Hamiltonian matrix.
 
@@ -84,20 +82,20 @@ class Hamiltonian:
             Minimum energy level for random generation.
         emax : float
             Maximum energy level for random generation.
-        tol : float
-            Tolerance level for calculations.
 
         Returns
         -------
         ndarray
             A randomly generated weak Hamiltonian matrix.
         """
-
-        sorted_energies = np.sort(np.random.choice(np.linspace(emin, emax, 1000 * dim), size = dim, replace = True))
-        e_diffs = np.abs(sorted_energies[:, None] - sorted_energies[None, :]) + tol
+        choices_nr = 1000 * dim
+        pssbl_energies = np.linspace(emin, emax, choices_nr)
+        energies = np.random.choice(pssbl_energies, size = dim)
+        e_diffs = np.abs(energies[:, None] - energies[None, :])
         diag_idx = np.diag_indices_from(e_diffs)
-        tmp = 0.25 / e_diffs # the 0.025 makes it so that H_i,j = |H_ii-H_jj| / 1
-        tmp[diag_idx] = sorted_energies
+        pssbl_offs = np.linspace(-e_diffs.max(), e_diffs.max(), choices_nr)
+        tmp = np.random.choice(pssbl_offs, size = (dim, dim))
+        tmp[diag_idx] = energies
         H_mat = tmp + tmp.conj().T
         return H_mat
 
@@ -164,7 +162,7 @@ class State:
 
     Methods
     -------
-    get_graph(H, networkx=False, col_map_nodes="hsv", tol=1e-15)
+    get_graph(H, networkx=False, col_map_nodes="hsv")
         Generates a graph representation of the state vector.
     move(U, col_map_nodes="hsv", networkx=False)
         Updates the state vector by applying a unitary transformation.
@@ -173,8 +171,8 @@ class State:
     """
     def __init__(self, state_v, H,
                  networkx = True, 
-                 col_map_nodes = "coolwarm", col_map_edges = "hsv",
-                 tol = 1e-15, sim_tol = 1e-15):
+                 col_map_nodes = "coolwarm", col_map_edges = "hsv", sim_tol = 1e-15,
+                 min_node_alpha = 0.1, min_edge_alpha = 0.25):
         """
         Initializes the State with a given state vector and Hamiltonian.
 
@@ -188,19 +186,17 @@ class State:
             Whether to use NetworkX for graph representation.
         col_map_nodes : str, optional
             Color map for the nodes in the graph.
-        tol : float, optional
-            Tolerance level for calculations.
         sim_tol : float, optional
             Tolerance level for similarity calculations during propagation.
         """
         self.state = state_v # state vector
         self.dense = state_v[:,None] @ state_v[None,:].conj() # density matrix 
-        self.state_graph = self.get_state_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_edges) # graph of vector state
-        self.dense_graph = self.get_dense_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # graph of density matrix
+        self.state_graph = self.get_state_graph(H, networkx = networkx, col_map_nodes = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # graph of vector state
+        self.dense_graph = self.get_dense_graph(H, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # graph of density matrix
 
     def get_state_graph(self, H, 
-                        networkx = True, col_map_nodes = "hsv",
-                        tol = 1e-15):
+                        networkx = True, col_map_nodes = "hsv", 
+                        min_node_alpha = 0.1, min_edge_alpha = 0.25):
         """
         Generates a graph representation of the state vector.
 
@@ -212,8 +208,6 @@ class State:
             Whether to use NetworkX for graph representation.
         col_map_nodes : str, optional
             Color map for the nodes in the graph.
-        tol : float, optional
-            Tolerance level for calculations.
 
         Returns
         -------
@@ -241,10 +235,10 @@ class State:
                 graph.nodes[node]["color"] = to_hex(rgba_colors[node])
                 graph.nodes[node]["label"] = node
                 graph.nodes[node]["value"] = self.state[node]
-                graph.nodes[node]["alpha"] = alpha_val if alpha_val >= 0.1 else 0.1
+                graph.nodes[node]["alpha"] = alpha_val if alpha_val >= min_node_alpha else min_node_alpha
             for edge in edges:
                 alpha_val = normalize_val(np.abs(H.matrix[edge]), vmin = 0, vmax =  np.abs(H.energy_diff_mat[edge]))
-                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= 0.25 else 0.25
+                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= min_edge_alpha else min_edge_alpha
         else: 
             graph = Hamiltonian(matrix).get_graph()
             
@@ -252,7 +246,7 @@ class State:
     
     def get_dense_graph(self, H, 
                         networkx = True, col_map_nodes = "coolwarm", col_map_edges = "hsv",
-                        tol = 1e-15):
+                        min_node_alpha = 0.1, min_edge_alpha = 0.25):
         """
         Generates a graph representation of the state density matrix.
 
@@ -264,9 +258,6 @@ class State:
             Whether to use NetworkX for graph representation.
         col_map_nodes : str, optional
             Color map for the edges in the graph.
-        tol : float, optional
-            Tolerance level for calculations.
-
         Returns
         -------
         Network or Graph
@@ -285,41 +276,45 @@ class State:
             for idx, edge in enumerate(edges):
                 alpha_val = normalize_val(np.abs(self.dense[edge])**2, vmin = 0, vmax = (self.dense[edge[0],edge[0]] * self.dense[edge[1],edge[1]]).real)
                 graph.edges[edge]["color"] = to_hex(coloring(phases[edge], vmin = -np.pi, vmax = np.pi, col_map = col_map_edges))
-                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= 0.25 else 0.25 # 0 <= |alpha_ij|^2 <= p_ii*p_jj
+                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= min_edge_alpha else min_edge_alpha # 0 <= |alpha_ij|^2 <= p_ii*p_jj
             for node in nodes:
+                alpha_val = normalize_val(self.dense[node, node], vmin = 0, vmax = 1)
                 graph.nodes[node]["label"] = node
                 graph.nodes[node]["value"] = self.dense[node, node]
                 graph.nodes[node]["color"] = to_hex(coloring(self.dense[node, node].real, vmin = 0, vmax = 1, col_map = col_map_nodes))
+                graph.nodes[node]["alpha"] = alpha_val.real if alpha_val.real >= min_node_alpha else min_node_alpha
         else: 
             graph = Hamiltonian(matrix).get_graph()
             
         return graph
 
-    def move(self, H, U, col_map_edges = "hsv", col_map_nodes = "coolwarm", networkx = True):
+    def move(self, H, U, col_map_edges = "hsv", col_map_nodes = "coolwarm", networkx = True,
+             min_node_alpha = 0.1, min_edge_alpha = 0.25):
         #self.state = np.dot(self.state, H.probabilities)
         self.state = U @ self.state
         self.state = self.state / np.linalg.norm(self.state)
         self.dense = self.state[:, None] @ self.state[None,:].conj()
-        self.state_graph = self.get_state_graph(H, networkx = networkx, col_map_nodes = col_map_edges) # in this case color of nodes is complex phase of edges
-        self.dense_graph = self.get_dense_graph(H, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges)
+        self.state_graph = self.get_state_graph(H, networkx = networkx, col_map_nodes = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # in this case color of nodes is complex phase of edges
+        self.dense_graph = self.get_dense_graph(H, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha)
 
     def propagate(self, H, 
                   dt = None, t_final = None, 
                   networkx = True, sim_tol = 1e-15, 
-                  col_map_edges = "hsv", col_map_nodes = "coolwarm",):
+                  col_map_edges = "hsv", col_map_nodes = "coolwarm",
+                  min_node_alpha = 0.1, min_edge_alpha = 0.25):
         states = [deepcopy(self)] # initializing list
         vect_distance = lambda v, u :  np.dot(v,u) / (np.linalg.norm(v)*np.linalg.norm(u)) # cos similarity function
         U = expm(-1j * H.matrix * dt)
         
         if t_final == None:
-            self.move(H, U, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move initial state
+            self.move(H, U, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # move initial state
             init_sim = vect_distance(self.state, states[0].state) # initial similarity to initialize while loop
             similarities = [0.1, init_sim] # first entry is introduced to initialize while loop
             idx = 0 # dummy index
             
             pbar = tqdm(total = idx+1) # progress bar
             while np.abs(similarities[-1] - similarities[-2]) > sim_tol: # looping until similarity is stable
-                state.move(U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move state
+                state.move(U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # move state
                 states.append(deepcopy(self)) # append copy of new state
                 similarities.append(vect_distance(self.state, states[idx].state)) # append similarity with previous state
                 idx += 1 # updating idx
@@ -327,7 +322,7 @@ class State:
             return states, similarities
         steps = int(t_final / dt)
         for _ in trange(steps, desc = "Propagating"):
-            self.move(H, U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move state
+            self.move(H, U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges, min_node_alpha = min_node_alpha, min_edge_alpha = min_edge_alpha) # move state
             states.append(deepcopy(self)) # store new state
         return states
         
