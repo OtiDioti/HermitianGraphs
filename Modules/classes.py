@@ -69,7 +69,8 @@ class Hamiltonian:
         
         self.couplings = self.matrix - np.diag(self.energies)
         self.energy_diff_mat = (self.energies[:,None] - self.energies[None,:])
-        self.probabilities = self.get_probabilities(hbar = hbar, tol = tol)
+        self.max_abs_coupling = np.abs(self.couplings.max())
+        self.min_abs_coupling = np.abs(self.couplings.min())
 
     def get_random_weak_ham(self, dim, emin, emax, tol):
         """
@@ -95,7 +96,7 @@ class Hamiltonian:
         sorted_energies = np.sort(np.random.choice(np.linspace(emin, emax, 1000 * dim), size = dim, replace = True))
         e_diffs = np.abs(sorted_energies[:, None] - sorted_energies[None, :]) + tol
         diag_idx = np.diag_indices_from(e_diffs)
-        tmp = 0.025 / e_diffs # the 0.025 makes it so that H_i,j = |H_ii-H_jj| / 10
+        tmp = 0.25 / e_diffs # the 0.025 makes it so that H_i,j = |H_ii-H_jj| / 1
         tmp[diag_idx] = sorted_energies
         H_mat = tmp + tmp.conj().T
         return H_mat
@@ -143,45 +144,12 @@ class Hamiltonian:
                         color = [hex_color(en) for en in self.energies],
                         label = [f"{n}" for n in nodes]) # creating as many nodes as diagonal elements
     
-        tmp = self.matrix * np.tri(self.dim, self.dim, -1) # returns H where all diagonal and upper triangle are set to 0
+        tmp = self.matrix * np.tri(self.dim, self.dim, -1).T # returns H where all diagonal and lower triangle are set to 0
         where_non_zero = np.nonzero(tmp) # returns tuple of arrays which indicate where non zero elements appear
     
         graph.add_edges([(int(where_non_zero[0][i]), int(where_non_zero[1][i])) for i in range(len(where_non_zero[0]))])
         return graph
-        
-    def get_probabilities(self, hbar=1, tol=1e-15):
-        """
-        Calculates transition probabilities based on the Hamiltonian matrix.
-
-        Parameters
-        ----------
-        hbar : float, optional
-            Reduced Planck constant.
-        tol : float, optional
-            Tolerance level for calculations.
-
-        Returns
-        -------
-        ndarray
-            Complex probabilities computed from the Hamiltonian matrix.
-        """
-        # Compute density of states as 1 / (energy difference + eps) to avoid division by zero
-        #density = (self.state[:,None] - self.state[None,:]) / (H.energy_diff_mat + tol)# density of states
-        density = 1.0 / (np.abs(self.energy_diff_mat) + tol)
-        
-        # Compute unnormalized probabilities using Fermi's golden rule
-        probabilities = (2 * np.pi / hbar) * density * np.abs(self.couplings) ** 2
-        
-        # Normalize the probabilities
-        #norms = np.sqrt(np.sum(np.abs(probabilities)**2, axis = 0)) # normalization
-        #normalized_probabilities = probabilities / norms[:,None]
-        norms = np.sum(probabilities, axis=1, keepdims=True)
-        normalized_probabilities = probabilities / norms
-
-        # Convert to complex probabilities with phases
-        complex_probabilities = np.sqrt(normalized_probabilities) * np.exp(1j * np.angle(self.couplings))
-
-        return complex_probabilities # normalized_probabilities
+     
 
 class State:
     """
@@ -204,7 +172,8 @@ class State:
         Propagates the state vector over time.
     """
     def __init__(self, state_v, H,
-                 networkx = False, col_map_nodes = "hsv",
+                 networkx = True, 
+                 col_map_nodes = "coolwarm", col_map_edges = "hsv",
                  tol = 1e-15, sim_tol = 1e-15):
         """
         Initializes the State with a given state vector and Hamiltonian.
@@ -224,12 +193,14 @@ class State:
         sim_tol : float, optional
             Tolerance level for similarity calculations during propagation.
         """
-        self.state = state_v 
-        self.graph = self.get_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_nodes)
+        self.state = state_v # state vector
+        self.dense = state_v[:,None] @ state_v[None,:].conj() # density matrix 
+        self.state_graph = self.get_state_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_edges) # graph of vector state
+        self.dense_graph = self.get_dense_graph(H, networkx = networkx, tol = tol, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # graph of density matrix
 
-    def get_graph(self, H, 
-                  networkx = False, col_map_nodes = "hsv",
-                  tol = 1e-15):
+    def get_state_graph(self, H, 
+                        networkx = True, col_map_nodes = "hsv",
+                        tol = 1e-15):
         """
         Generates a graph representation of the state vector.
 
@@ -254,56 +225,101 @@ class State:
         matrix = H.matrix.copy()
         diagonal_idx = np.diag_indices_from(matrix)
         matrix[diagonal_idx] = probs
+        
         if networkx: # if we want graph representation to be handled by networkx
-            # Coloring
-            
-            norm = plt.Normalize(vmin = -np.pi, vmax = np.pi) # normalizes value between bounds
-            norm_value = lambda val : min(max(val, -np.pi), np.pi) # constraining value between two bounds
-            normalized_value = lambda val: norm(norm_value(val)) # normalizing
-            
-            cmap = plt.get_cmap(col_map_nodes) # obtaining color map for nodes 
-            rgba_color = lambda val: cmap(normalized_value(val)) # getting rgba            
-            
-            # Graph
-            coups_idx = np.nonzero(H.couplings * np.tri(H.dim, H.dim, -1))
+            nodes = np.arange(H.dim)
+            coups_idx = np.nonzero(H.couplings * np.tri(H.dim, H.dim, -1).T)
             edges = [(coups_idx[0][i], coups_idx[1][i]) for i in range(len(coups_idx[0]))]
-            graph = Graph(edges)
-            rgba_colors = [list(rgba_color(phase[node].real)) for node in range(H.dim)]
             
-
-            for node in range(H.dim):
+            graph = Graph(edges)
+            graph.add_nodes_from(nodes)
+            rgba_colors = [list(coloring(phase[node], vmin = -np.pi, vmax = np.pi, col_map = col_map_nodes)) for node in nodes]
+            
+            for node in nodes:
+                #node = list(dict(graph.nodes).keys())[idx]
+                #print(graph.nodes.values(), node)
                 rgba_colors[node][-1] =  s_profile(matrix[node, node]).real
                 graph.nodes[node]["color"] = to_hex(rgba_colors[node])
                 graph.nodes[node]["label"] = node
                 graph.nodes[node]["value"] = self.state[node]
+            for edge in edges:
+                alpha_val = normalize_val(np.abs(H.matrix[edge]), vmin = 0, vmax =  np.abs(H.energy_diff_mat[edge]))
+                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= 0.25 else 0.25
+        else: 
+            graph = Hamiltonian(matrix).get_graph()
+            
+        return graph
+    
+    def get_dense_graph(self, H, 
+                        networkx = True, col_map_nodes = "coolwarm", col_map_edges = "hsv",
+                        tol = 1e-15):
+        """
+        Generates a graph representation of the state density matrix.
+
+        Parameters
+        ----------
+        H : Hamiltonian
+            The Hamiltonian governing the system's evolution.
+        networkx : bool, optional
+            Whether to use NetworkX for graph representation.
+        col_map_nodes : str, optional
+            Color map for the edges in the graph.
+        tol : float, optional
+            Tolerance level for calculations.
+
+        Returns
+        -------
+        Network or Graph
+            A graph representation of the state density matrix.
+        """
+        lower_triangle_remover = np.tri(H.dim, H.dim, -1).T
+        phases = np.angle(self.dense) # matrix of phases of density matrix off diagonals
+        
+        if networkx: # if we want graph representation to be handled by networkx
+            nodes = np.arange(H.dim)
+            phases_idx = np.nonzero(phases * lower_triangle_remover)
+            edges = [(phases_idx[0][i], phases_idx[1][i]) for i in range(len(phases_idx[0]))]
+            graph = Graph(edges)
+            graph.add_nodes_from(nodes)
+            
+            for idx, edge in enumerate(edges):
+                alpha_val = normalize_val(np.abs(self.dense[edge])**2, vmin = 0, vmax = (self.dense[edge[0],edge[0]] * self.dense[edge[1],edge[1]]).real)
+                graph.edges[edge]["color"] = to_hex(coloring(phases[edge], vmin = -np.pi, vmax = np.pi, col_map = col_map_edges))
+                graph.edges[edge]["alpha"] = alpha_val if alpha_val >= 0.25 else 0.25 # 0 <= |alpha_ij|^2 <= p_ii*p_jj
+            for node in nodes:
+                graph.nodes[node]["label"] = node
+                graph.nodes[node]["value"] = self.dense[node, node]
+                graph.nodes[node]["color"] = to_hex(coloring(self.dense[node, node].real, vmin = 0, vmax = 1, col_map = col_map_nodes))
         else: 
             graph = Hamiltonian(matrix).get_graph()
             
         return graph
 
-    def move(self, H, U, col_map_nodes = "hsv", networkx = False):
+    def move(self, H, U, col_map_edges = "hsv", col_map_nodes = "coolwarm", networkx = True):
         #self.state = np.dot(self.state, H.probabilities)
         self.state = U @ self.state
         self.state = self.state / np.linalg.norm(self.state)
-        self.graph = self.get_graph(H, networkx = networkx, col_map_nodes = col_map_nodes)
+        self.dense = self.state[:, None] @ self.state[None,:].conj()
+        self.state_graph = self.get_state_graph(H, networkx = networkx, col_map_nodes = col_map_edges) # in this case color of nodes is complex phase of edges
+        self.dense_graph = self.get_dense_graph(H, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges)
 
     def propagate(self, H, 
                   dt = None, t_final = None, 
-                  networkx = False, sim_tol = 1e-15, 
-                  col_map_nodes = "hsv"):
+                  networkx = True, sim_tol = 1e-15, 
+                  col_map_edges = "hsv", col_map_nodes = "coolwarm",):
         states = [deepcopy(self)] # initializing list
         vect_distance = lambda v, u :  np.dot(v,u) / (np.linalg.norm(v)*np.linalg.norm(u)) # cos similarity function
         U = expm(-1j * H.matrix * dt)
         
         if t_final == None:
-            self.move(H, U, networkx = networkx, col_map_nodes = col_map_nodes) # move initial state
+            self.move(H, U, networkx = networkx, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move initial state
             init_sim = vect_distance(self.state, states[0].state) # initial similarity to initialize while loop
             similarities = [0.1, init_sim] # first entry is introduced to initialize while loop
             idx = 0 # dummy index
             
             pbar = tqdm(total = idx+1) # progress bar
             while np.abs(similarities[-1] - similarities[-2]) > sim_tol: # looping until similarity is stable
-                state.move(U, networkx = True, col_map_nodes = col_map_nodes) # move state
+                state.move(U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move state
                 states.append(deepcopy(self)) # append copy of new state
                 similarities.append(vect_distance(self.state, states[idx].state)) # append similarity with previous state
                 idx += 1 # updating idx
@@ -311,7 +327,7 @@ class State:
             return states, similarities
         steps = int(t_final / dt)
         for _ in trange(steps, desc = "Propagating"):
-            self.move(H, U, networkx = True, col_map_nodes = col_map_nodes) # move state
+            self.move(H, U, networkx = True, col_map_nodes = col_map_nodes, col_map_edges = col_map_edges) # move state
             states.append(deepcopy(self)) # store new state
         return states
         
@@ -325,3 +341,14 @@ def s_profile(x, k=10, x0=0.5):
     f = lambda x: (g(x) - g0) / (g1 - g0)
     
     return f(x)
+
+def normalize_val(val, vmin, vmax):
+    norm = plt.Normalize(vmin = vmin, vmax = vmax) # normalizes value between bounds
+    norm_value = lambda val : min(max(val, vmin), vmax) # constraining value between two bounds
+    normalized_value = lambda val: norm(norm_value(val)) # normalizing
+    return normalized_value(val)
+
+def coloring(val, vmin, vmax, col_map):
+    cmap = plt.get_cmap(col_map) # obtaining color map for nodes 
+    rgba_color = lambda val: cmap(normalize_val(val, vmin = vmin, vmax = vmax)) # getting rgba
+    return rgba_color(val)
