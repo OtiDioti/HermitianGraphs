@@ -5,7 +5,7 @@ Visualize Hamiltonian dynamics of quantum systems with a complex weighted graph 
   <img src="gifs/movie.gif" width="500" alt="Quantum Hamiltonian Dynamics">
 </p>
 
-Above you see the vector state (left) and density matrix (right) representation of a state initialized in $|0\rangle$. In the vector state graph, the color of the nodes represents the complex phase of the corresponding state. In the density matrix graph, the coherences are represented by the color of the edges between each state, whilst the color of the nodes represent the population of the corresponding state. 
+Above you see the vector state (left) and density matrix (right) representation of a state initialized in $|0\rangle$. In the vector state graph, the color of the nodes represents the complex phase of the corresponding state: here the edges represent the interaction strength between each state. In the density matrix graph, the coherences are represented by the color of the edges between each state, whilst the color of the nodes represent the population of the corresponding state. 
 ## Overview
 
 This repository provides classes and functions to create and visualize Hamiltonian matrices for quantum systems. The `Hamiltonian` class generates a Hamiltonian matrix and computes transition probabilities, while the `State` class represents quantum states and simulates their evolution over time. The visualization is implemented using the `pyvis` library for interactive graph representations.
