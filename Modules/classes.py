@@ -319,7 +319,7 @@ class State:
                    usetex = True, font_family = 'serif', weight = 'normal', font_size = 18,
                    cmap_nodes = 'coolwarm', cmap_edges = "hsv", fig_face_color = "black", ax_face_color = "black", edge_constant_color = "white"
                   ):
-        #plt.style.use(plt_style)
+        plt.style.use(plt_style)
         plt.rc('text', usetex = usetex)
         plt.rc('font', family = font_family, weight = weight)
         plt.rc('font', size = font_size)
