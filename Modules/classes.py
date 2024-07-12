@@ -136,7 +136,7 @@ class Hamiltonian:
             graph.nodes[node]["value"] = self.energies[node]
             graph.nodes[node]["alpha"] = alpha_val if alpha_val >= min_node_alpha else min_node_alpha
         for edge in edges:
-            alpha_val = normalize_val(np.abs(self.matrix[edge]), vmin = 0, vmax =  np.abs(self.energy_diff_mat[edge]))
+            alpha_val = normalize_val(np.abs(self.matrix[edge]), vmin = 0, vmax =  np.abs(self.couplings).max())
             graph.edges[edge]["alpha"] = alpha_val if alpha_val >= min_edge_alpha else min_edge_alpha
         
         return graph
