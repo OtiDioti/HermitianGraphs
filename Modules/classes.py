@@ -127,7 +127,7 @@ class Hamiltonian:
 
         graph = Graph(edges) # initializing edges
         graph.add_nodes_from(nodes) # ensuring that nodes without edges are included
-        nodes_colors = [list(coloring(self.energies[node], vmin =  self.energies.min(), vmax =  self.energies.max(), col_map = col_map_nodes)) for node in nodes]
+        nodes_colors = [list(coloring(self.energies[node].real, vmin =  self.energies.min().real, vmax = self.energies.max().real, col_map = col_map_nodes)) for node in nodes]
 
         for node in nodes:
             alpha_val = normalize_val(self.energies[node], vmin = self.energies.min(), vmax = self.energies.max())
