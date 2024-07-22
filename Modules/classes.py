@@ -176,6 +176,8 @@ class Hamiltonian:
                                #alpha = [G.nodes[node]["alpha"] for node in dict(G.nodes).keys()],
                                node_color = [G.nodes[node]["color"] for node in dict(G.nodes).keys()])
         nx.draw_networkx_labels(G,layout)
+        
+    
 
 
 class State:
@@ -427,3 +429,53 @@ def coloring(val, vmin, vmax, col_map):
     cmap = plt.get_cmap(col_map) # obtaining color map for nodes 
     rgba_color = lambda val: cmap(normalize_val(val, vmin = vmin, vmax = vmax)) # getting rgba
     return rgba_color(val)
+
+def show_separate_sub_graphs(H, layout_idx = 0, plt_style = "classic", figure_size_list = [7.50, 7.50], plt_auto_layout = True,
+               usetex = True, font_family = 'serif', weight = 'normal', font_size = 18,
+               cmap_nodes = 'twilight', cmap_edges = "hsv", fig_face_color = "black", ax_face_color = "black", edge_constant_color = "white",
+               scale = 1.5
+                  ):
+        plt.style.use(plt_style)
+        plt.rc('text', usetex = usetex)
+        plt.rc('font', family = font_family, weight = weight)
+        plt.rc('font', size = font_size)
+        plt.rcParams["figure.figsize"] = figure_size_list
+        plt.rcParams["figure.autolayout"] = plt_auto_layout
+        
+        fig, ax = plt.subplots()
+        fig.set_facecolor(fig_face_color)
+        ax.set_facecolor(ax_face_color)
+
+        G = H.graph
+        
+        layouts = [nx.circular_layout, 
+                   nx.spring_layout, 
+                   nx.spectral_layout,
+                   nx.kamada_kawai_layout,
+                   nx.planar_layout,
+                   nx.spring_layout,
+                   nx.shell_layout,
+                   nx.random_layout]
+                
+        cc = list(nx.connected_components(G))
+
+        G2 = nx.cycle_graph(len(cc))
+        # assign a weigth inversely proportional to the subgraph size
+        nx.set_node_attributes(G2, {i: 1/l for i,l in enumerate(map(len, cc))},
+                               name='weight')
+        superpos = layouts[layout_idx](G2, scale = scale)
+        pos = {}
+
+        for center, c in zip(superpos.values(), cc):
+            pos.update(nx.spring_layout(nx.subgraph(G, c), center=center))
+        
+        
+        nx.draw_networkx_edges(G, edgelist = dict(G.edges).keys(),
+                               alpha = [G.edges[edge]["alpha"] for edge in dict(G.edges).keys()],
+                               edge_color = edge_constant_color,
+                              pos=pos,)
+        nx.draw_networkx_nodes(G,
+                               #alpha = [G.nodes[node]["alpha"] for node in dict(G.nodes).keys()],
+                               node_color = [G.nodes[node]["color"] for node in dict(G.nodes).keys()],
+                              pos=pos,)
+        nx.draw_networkx_labels(G,pos=pos)
